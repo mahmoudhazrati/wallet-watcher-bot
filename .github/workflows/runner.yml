@@ -1,0 +1,44 @@
+name: Wallet Watcher
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # هر 5 دقیقه
+  workflow_dispatch:
+
+permissions:
+  contents: write   # تا state.json را پوش کنه
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r requirements.txt
+
+      - name: Run bot
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ETHERSCAN_KEY: ${{ secrets.ETHERSCAN_KEY }}
+          WALLETS: ${{ secrets.WALLETS }}
+          INIT_MODE: "silent"   # اگر می‌خوای دفعه اول هم نوتیف بده، بذار "notify"
+        run: python bot.py
+
+      - name: Commit state if changed
+        run: |
+          if [[ -n "$(git status --porcelain state.json)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add state.json
+            git commit -m "chore: update state $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          else
+            echo "No state changes"
+          fi
